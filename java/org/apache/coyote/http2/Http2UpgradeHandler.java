@@ -425,6 +425,7 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
 
         // WebConnection is not used so passing null here is fine
         // Might not be necessary. init() will handle that.
+        boolean newConnection = connectionState.get() == ConnectionState.NEW;
         init(null);
 
         SocketState result = SocketState.CLOSED;
@@ -432,6 +433,21 @@ class Http2UpgradeHandler extends AbstractStream implements InternalHttpUpgradeH
         try {
             switch (status) {
                 case OPEN_READ:
+                    if (newConnection && hasAsyncIO()) {
+                        /*
+                         * The connection was initialised by the call to init() above. With asynchronous I/O, init()
+                         * uses a non-blocking read for the client preface and the completion handler for that read
+                         * starts reading frames, either before init() returns or later on another thread. Reading
+                         * frames here as well could result in two threads reading frames concurrently and frames
+                         * being processed out of order.
+                         */
+                        if (connectionState.get() != ConnectionState.CLOSED) {
+                            // The client preface may not have been fully received yet
+                            setConnectionTimeoutForStreamCount(activeRemoteStreamCount.get());
+                            result = SocketState.ASYNC_IO;
+                        }
+                        break;
+                    }
                     socketWrapper.getLock().lock();
                     try {
                         if (socketWrapper.canWrite()) {

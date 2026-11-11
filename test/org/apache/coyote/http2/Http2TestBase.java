@@ -642,7 +642,7 @@ public abstract class Http2TestBase extends TomcatBaseTest {
         Tomcat tomcat = getTomcatInstance();
         Connector connector = tomcat.getConnector();
         Assert.assertTrue(connector.setProperty("useAsyncIO", Boolean.toString(useAsyncIO)));
-        http2Protocol = new UpgradableHttp2Protocol();
+        http2Protocol = createHttp2Protocol();
         // Short timeouts for now. May need to increase these for CI systems.
         http2Protocol.setReadTimeout(readTimeout);
         http2Protocol.setWriteTimeout(writeTimeout);
@@ -658,7 +658,11 @@ public abstract class Http2TestBase extends TomcatBaseTest {
         }
     }
 
-    private static class UpgradableHttp2Protocol extends Http2Protocol {
+    protected Http2Protocol createHttp2Protocol() {
+        return new UpgradableHttp2Protocol();
+    }
+
+    protected static class UpgradableHttp2Protocol extends Http2Protocol {
         @Override
         public String getHttpUpgradeName(boolean isSSLEnabled) {
             return "h2c";
